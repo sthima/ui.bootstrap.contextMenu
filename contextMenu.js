@@ -39,17 +39,21 @@ angular.module('ui.bootstrap.contextMenu', [])
         var $promises = [];
         angular.forEach(options, function (item, i) {
             var $li = $('<li>');
+            if (item.icon){
+                $li.addClass(item.icon);
+            }
+
             if (item === null) {
                 $li.addClass('divider');
             } else {
-                var nestedMenu = angular.isArray(item[1])
-                  ? item[1] : angular.isArray(item[2])
-                  ? item[2] : angular.isArray(item[3])
-                  ? item[3] : null;
                 var $a = $('<a>');
                 $a.css("padding-right", "8px");
-                $a.attr({ tabindex: '-1', href: '#' });
-                var text = typeof item[0] == 'string' ? item[0] : item[0].call($scope, $scope, event, model);
+                $a.attr(angular.extend({ tabindex: '-1', href: '#'}, item.attrs));
+
+                var nestedMenu = item.nestedMenu;
+                var text = item.label.call($scope, $scope, event, model);
+                var enabled = item.enabled.call($scope, $scope, event, model, text);
+
                 $promise = $q.when(text)
                 $promises.push($promise);
                 $promise.then(function (text) {
@@ -59,9 +63,10 @@ angular.module('ui.bootstrap.contextMenu', [])
                     }
                     $a.append(text);
                 });
+
                 $li.append($a);
 
-                var enabled = angular.isFunction(item[2]) ? item[2].call($scope, $scope, event, model, text) : true;
+                //var enabled = angular.isFunction(item[2]) ? item[2].call($scope, $scope, event, model, text) : true;
                 if (enabled) {
                     var openNestedMenu = function ($event) {
                         removeContextMenus(level + 1);
@@ -79,7 +84,7 @@ angular.module('ui.bootstrap.contextMenu', [])
                             } else {
                                 $(event.currentTarget).removeClass('context');
                                 removeContextMenus();
-                                item[1].call($scope, $scope, event, model, text);
+                                item.onEnd.call($scope, $scope, event, model, text);
                             }
                         });
                     });
@@ -141,7 +146,7 @@ angular.module('ui.bootstrap.contextMenu', [])
                     left: leftCoordinate + 'px',
                     top: topCoordinate + 'px'
                 });
-            } 
+            }
         });
 
         $contextMenu.on("mousedown", function (e) {
@@ -177,3 +182,20 @@ angular.module('ui.bootstrap.contextMenu', [])
         });
     };
 }]);
+
+function ContextMenuOption(options) {
+
+    to_function = function (attr){
+        if (typeof attr == 'string'){
+            return function() { return attr; }
+        }
+        return attr || function(){return true};
+    };
+
+    this.label = to_function(options.label);
+    this.enabled = to_function(options.enabled);
+    this.icon = options.icon;
+    this.attrs = options.attrs || {};
+    this.nestedMenu = options.nestedMenu;
+    this.onEnd = options.onEnd;
+};
